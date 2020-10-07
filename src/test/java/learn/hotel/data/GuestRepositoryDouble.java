@@ -30,16 +30,26 @@ public class GuestRepositoryDouble implements GuestRepository {
 
     @Override
     public Guest add(Guest guest) throws DataException {
-        return null;
+        List<Guest> all = findAll();
+
+        int nextId = all.stream()
+                .mapToInt(Guest::getGuestId)
+                .max()
+                .orElse(0) + 1;
+
+        guest.setGuestId(nextId);
+
+        all.add(guest);
+        return guest;
     }
 
     @Override
     public boolean edit(Guest guest) throws DataException {
-        return false;
+        return true;
     }
 
     @Override
     public Guest delete(Guest guest) throws DataException {
-        return null;
+        return guest;
     }
 }

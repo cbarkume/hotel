@@ -5,13 +5,13 @@ import learn.hotel.models.*;
 import java.util.List;
 
 public interface ReservationRepository {
-    Reservation findByHostGuest(Host host, Guest guest);
+    Reservation findByHostIdGuestId(String hostId, int guestId);
 
-    List<Reservation> findByHost(Host host);
+    List<Reservation> findByHostId(String id);
 
     Reservation add(Reservation reservation) throws DataException;
 
     boolean edit(Reservation reservation) throws DataException;
 
-    Reservation cancel(Reservation reservation) throws DataException;
+    Reservation cancelByHostIdGuestId(String hostId, int guestId) throws DataException;
 }

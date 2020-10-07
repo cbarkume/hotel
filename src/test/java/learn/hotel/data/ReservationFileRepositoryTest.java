@@ -3,10 +3,12 @@ package learn.hotel.data;
 import learn.hotel.models.Guest;
 import learn.hotel.models.Host;
 import learn.hotel.models.Reservation;
+import learn.hotel.models.State;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,10 +27,10 @@ class ReservationFileRepositoryTest {
 
     GuestFileRepository guestRepo = new GuestFileRepository("./data/guests.csv");
     HostFileRepository hostRepo = new HostFileRepository("./data/hosts.csv");
-    ReservationFileRepository reservationRepo = new ReservationFileRepository(TEST_DIR_PATH, guestRepo);
+    ReservationFileRepository reservationRepo = new ReservationFileRepository(TEST_DIR_PATH, guestRepo, hostRepo);
 
     Guest testGuest = guestRepo.findById(133);
-    Host testHost = hostRepo.findById("ffe5c6f3-4321-435c-93ab-35ae53f9fed8");
+    Host testHost = new Host("reservation-test","McTesterson","testy@test.com","(555) 5555555","48187 Test Road","Teston", State.MI,"21231",new BigDecimal(10),new BigDecimal(20));
     Reservation reservation = new Reservation(RESERVATION_COUNT + 1, LocalDate.of(2020,10,6), LocalDate.of(2020,10,14), testHost, testGuest);
 
     @BeforeEach
@@ -43,21 +45,21 @@ class ReservationFileRepositoryTest {
 
     @Test
     void shouldFindByHostGuest() {
-        Reservation reservation = reservationRepo.findByHostGuest(testHost,testGuest);
+        Reservation reservation = reservationRepo.findByHostIdGuestId(testHost.getId(),testGuest.getGuestId());
         assertTrue(reservation.getId() == 1);
     }
 
     @Test
     void shouldNotFindWhenInvalidHost() {
         testHost.setId("bsuhfou");
-        Reservation reservation = reservationRepo.findByHostGuest(testHost,testGuest);
+        Reservation reservation = reservationRepo.findByHostIdGuestId(testHost.getId(),testGuest.getGuestId());
         assertNull(reservation);
     }
 
     @Test
     void shouldNotFindWhenInvalidGuest() {
         testGuest.setGuestId(23904);
-        Reservation reservation = reservationRepo.findByHostGuest(testHost,testGuest);
+        Reservation reservation = reservationRepo.findByHostIdGuestId(testHost.getId(),testGuest.getGuestId());
         assertNull(reservation);
     }
 
@@ -65,45 +67,45 @@ class ReservationFileRepositoryTest {
     void shouldNotFindWhenBothInvalid() {
         testHost.setId("bsuhfou");
         testGuest.setGuestId(23904);
-        Reservation reservation = reservationRepo.findByHostGuest(testHost,testGuest);
+        Reservation reservation = reservationRepo.findByHostIdGuestId(testHost.getId(),testGuest.getGuestId());
         assertNull(reservation);
     }
 
     @Test
     void shouldNotFindWhenHostNull() {
-        Reservation reservation = reservationRepo.findByHostGuest(null,testGuest);
+        Reservation reservation = reservationRepo.findByHostIdGuestId(null,testGuest.getGuestId());
         assertNull(reservation);
     }
 
     @Test
     void shouldNotFindWhenGuestNull() {
-        Reservation reservation = reservationRepo.findByHostGuest(testHost,null);
+        Reservation reservation = reservationRepo.findByHostIdGuestId(testHost.getId(),-15);
         assertNull(reservation);
     }
 
     @Test
     void shouldNotFindWhenBothNull() {
-        Reservation reservation = reservationRepo.findByHostGuest(null,null);
+        Reservation reservation = reservationRepo.findByHostIdGuestId(null,-15);
         assertNull(reservation);
     }
 
     @Test
     void shouldFindByHost() {
         testHost.setId("reservation-test");
-        List<Reservation> reservations = reservationRepo.findByHost(testHost);
+        List<Reservation> reservations = reservationRepo.findByHostId(testHost.getId());
         assertEquals(16, reservations.size());
     }
 
     @Test
     void shouldNotFindForInvalidHost() {
         testHost.setId("bsuhfou");
-        List<Reservation> reservations = reservationRepo.findByHost(testHost);
+        List<Reservation> reservations = reservationRepo.findByHostId(testHost.getId());
         assertEquals(0, reservations.size());
     }
 
     @Test
     void shouldNotFindForNullHost() {
-        List<Reservation> reservations = reservationRepo.findByHost(null);
+        List<Reservation> reservations = reservationRepo.findByHostId(null);
         assertEquals(0,reservations.size());
     }
 
@@ -111,14 +113,14 @@ class ReservationFileRepositoryTest {
     void shouldAdd() throws DataException {
         Reservation reservationResult = reservationRepo.add(reservation);
         assertEquals(reservationResult,reservation);
-        assertEquals(17, reservationRepo.findByHost(testHost).size());
+        assertEquals(17, reservationRepo.findByHostId(testHost.getId()).size());
     }
 
     @Test
     void shouldNotAddNullReservation() throws DataException {
         Reservation reservationResult = reservationRepo.add(null);
         assertNull(reservationResult);
-        assertEquals(16, reservationRepo.findByHost(testHost).size());
+        assertEquals(16, reservationRepo.findByHostId(testHost.getId()).size());
     }
 
     @Test
@@ -127,29 +129,26 @@ class ReservationFileRepositoryTest {
         reservation.setEndDate(LocalDate.of(2020,11,1));
         boolean success = reservationRepo.edit(reservation);
         assertTrue(success);
-        assertEquals(17, reservationRepo.findByHost(testHost).size());
+        assertEquals(17, reservationRepo.findByHostId(testHost.getId()).size());
     }
 
     @Test
     void shouldNotEditNullReservation() throws DataException {
         boolean success = reservationRepo.edit(null);
         assertFalse(success);
-        assertEquals(16, reservationRepo.findByHost(testHost).size());
+        assertEquals(16, reservationRepo.findByHostId(testHost.getId()).size());
     }
 
     @Test
     void shouldCancel() throws DataException {
-        reservationRepo.add(reservation);
-
-        Reservation reservationResult = reservationRepo.cancel(reservation);
-        assertEquals(reservationResult,reservation);
-        assertEquals(16, reservationRepo.findByHost(testHost).size());
+        Reservation reservationResult = reservationRepo.cancelByHostIdGuestId(reservation.getHost().getId(), reservation.getGuest().getGuestId());
+        assertEquals(1, reservationResult.getId());
     }
 
     @Test
     void shouldNotCancelNullReservation() throws DataException {
-        Reservation reservationResult = reservationRepo.cancel(null);
+        Reservation reservationResult = reservationRepo.cancelByHostIdGuestId(null, -15);
         assertNull(reservationResult);
-        assertEquals(16, reservationRepo.findByHost(testHost).size());
+        assertEquals(16, reservationRepo.findByHostId(testHost.getId()).size());
     }
 }

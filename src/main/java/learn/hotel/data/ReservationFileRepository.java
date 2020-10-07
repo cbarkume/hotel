@@ -14,22 +14,24 @@ public class ReservationFileRepository implements ReservationRepository {
     private static final String HEADER = "id,startDate,endDate,guestId,total";
     public String directory;
     GuestFileRepository guestRepo;
+    HostFileRepository hostRepo;
 
-    public ReservationFileRepository(String directory, GuestFileRepository guestRepo) {
+    public ReservationFileRepository(String directory, GuestFileRepository guestRepo, HostFileRepository hostRepo) {
         this.directory = directory;
         this.guestRepo = guestRepo;
+        this.hostRepo = hostRepo;
     }
 
     @Override
-    public Reservation findByHostGuest(Host host, Guest guest) {
-        List<Reservation> reservations = findByHost(host);
+    public Reservation findByHostIdGuestId(String hostId, int guestId) {
+        List<Reservation> reservations = findByHostId(hostId);
 
-        if (reservations.size() == 0 || guest == null) {
+        if (reservations.size() == 0 || guestId <= 0) {
             return null;
         }
 
         for (Reservation reservation : reservations) {
-            if (guest.getGuestId() == reservation.getGuest().getGuestId()) {
+            if (guestId == reservation.getGuest().getGuestId()) {
                 return reservation;
             }
         }
@@ -38,14 +40,14 @@ public class ReservationFileRepository implements ReservationRepository {
     }
 
     @Override
-    public List<Reservation> findByHost(Host host) {
+    public List<Reservation> findByHostId(String id) {
         ArrayList<Reservation> result = new ArrayList<>();
 
-        if (host == null) {
+        if (id == null) {
             return result;
         }
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(getFilePath(host.getId())))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(getFilePath(id)))) {
 
             reader.readLine(); // read header
 
@@ -53,12 +55,13 @@ public class ReservationFileRepository implements ReservationRepository {
 
                 String[] fields = line.split(",", -1);
                 if (fields.length == 5) {
-                    result.add(deserialize(fields, host));
+                    result.add(deserialize(fields, id));
                 }
             }
         } catch (IOException ex) {
             // don't throw on read
         }
+
         return result;
     }
 
@@ -67,7 +70,7 @@ public class ReservationFileRepository implements ReservationRepository {
         if (reservation == null) {
             return null;
         }
-        List<Reservation> all = findByHost(reservation.getHost());
+        List<Reservation> all = findByHostId(reservation.getHost().getId());
 
         int nextId = all.stream()
                 .mapToInt(Reservation::getId)
@@ -87,7 +90,7 @@ public class ReservationFileRepository implements ReservationRepository {
             return false;
         }
 
-        List<Reservation> all = findByHost(reservation.getHost());
+        List<Reservation> all = findByHostId(reservation.getHost().getId());
         for (int i = 0; i < all.size(); i++) {
             if (reservation.getId() == all.get(i).getId()) {
                 all.set(i, reservation);
@@ -100,12 +103,14 @@ public class ReservationFileRepository implements ReservationRepository {
     }
 
     @Override
-    public Reservation cancel(Reservation reservation) throws DataException {
-        if (reservation ==  null) {
+    public Reservation cancelByHostIdGuestId(String hostId, int guestId) throws DataException {
+        if (hostId ==  null || guestId <= 0) {
             return null;
         }
 
-        List<Reservation> all = findByHost(reservation.getHost());
+        Reservation reservation = findByHostIdGuestId(hostId, guestId);
+
+        List<Reservation> all = findByHostId(hostId);
         for (int i = 0; i < all.size(); i++) {
             if (reservation.getId() == all.get(i).getId()) {
                 all.remove(i);
@@ -117,7 +122,7 @@ public class ReservationFileRepository implements ReservationRepository {
     }
 
     private void writeAll(List<Reservation> reservations) throws DataException {
-        if (reservations.size() == 0) {
+        if (reservations == null || reservations.size() == 0) {
             return;
         }
 
@@ -146,13 +151,13 @@ public class ReservationFileRepository implements ReservationRepository {
                 reservation.getTotal());
     }
 
-    private Reservation deserialize(String[] fields, Host host) {
+    private Reservation deserialize(String[] fields, String id) {
         Reservation reservation = new Reservation();
 
         reservation.setId(Integer.parseInt(fields[0]));
         reservation.setStartDate(LocalDate.parse(fields[1]));
         reservation.setEndDate(LocalDate.parse(fields[2]));
-        reservation.setHost(host);
+        reservation.setHost(hostRepo.findById(id));
 
         Guest guest = guestRepo.findById(Integer.parseInt(fields[3]));
         reservation.setGuest(guest);
